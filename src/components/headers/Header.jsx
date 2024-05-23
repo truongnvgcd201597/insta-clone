@@ -6,10 +6,17 @@ import { CiCirclePlus } from "react-icons/ci";
 import { IoClose } from "react-icons/io5";
 import { MdAddAPhoto } from "react-icons/md";
 import Modal from "react-modal";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/app/firebase";
+import { addDoc, collection } from "firebase/firestore";
 
 export default function Headers() {
   const { data: session } = useSession();
   const [modalIsOpen, setIsOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [caption, setCaption] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const openModal = () => {
     setIsOpen(true);
@@ -17,6 +24,48 @@ export default function Headers() {
 
   const closeModal = () => {
     setIsOpen(false);
+    setPreviewImage(null);
+    setSelectedFile(null);
+    setCaption("");
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewImage(URL.createObjectURL(file));
+    }
+  };
+
+  const handlePhotoUpload = async (e) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      console.error("No file selected");
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const fileRef = ref(storage, `images/${selectedFile.name}`);
+      await uploadBytes(fileRef, selectedFile);
+      const downloadURL = await getDownloadURL(fileRef);
+
+      const docRef = await addDoc(collection(db, "posts"), {
+        username: session.user.name,
+        email: session.user.email,
+        image: downloadURL,
+        caption: caption,
+        timestamp: new Date(),
+      });
+
+      console.log("Document written with ID: ", docRef.id);
+    } catch (error) {
+      console.error("Upload failed:", error);
+    } finally {
+      setUploading(false);
+      closeModal();
+    }
   };
 
   const customStyles = {
@@ -86,12 +135,39 @@ export default function Headers() {
               </button>
               <MdAddAPhoto className="text-5xl" />
               <input
-                type="text"
-                className="border-2 border-gray-300 p-1 px-2 w-80 rounded-lg focus:outline-none mt-4"
-                placeholder="Add caption..."
+                type="file"
+                accept="image/*"
+                name="file"
+                id="file"
+                className="w-1/2"
+                onChange={handleFileChange}
               />
-              <button className="bg-blue-500 text-white w-1/2 p-1 px-2 rounded-lg mt-2">
-                Upload
+              {previewImage && (
+                <div className="mb-2 w-1/2 p-1 rounded-lg mt-2 border">
+                  <Image
+                    src={previewImage}
+                    className="rounded-lg transition duration-200 ease-in-out hover:scale-105 cursor-pointer"
+                    alt="Selected Image Preview"
+                    width={200}
+                    height={200}
+                  />
+                </div>
+              )}
+              <input
+                type="text"
+                name="caption"
+                id="caption"
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Write a caption..."
+                className="w-1/2 p-1 px-2 rounded-lg mt-2 border border-gray-300 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                onClick={handlePhotoUpload}
+                className="bg-blue-500 text-white w-1/2 p-1 px-2 rounded-lg mt-2"
+                disabled={uploading}
+              >
+                {uploading ? "Uploading..." : "Upload"}
               </button>
             </div>
           </Modal>

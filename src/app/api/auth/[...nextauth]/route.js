@@ -22,6 +22,11 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken;
+      session.user.uid = token.sub;
+      session.user.username = session.user.name
+        .split(" ")
+        .join("")
+        .toLocaleLowerCase();
       return session;
     },
   },
