@@ -53,9 +53,12 @@ export default function Headers() {
 
       const docRef = await addDoc(collection(db, "posts"), {
         username: session.user.name,
+        avatar: session.user.image,
         email: session.user.email,
         image: downloadURL,
         caption: caption,
+        likes: [],
+        comments: [],
         timestamp: new Date(),
       });
 
